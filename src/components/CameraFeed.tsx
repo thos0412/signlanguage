@@ -1,111 +1,134 @@
 // src/components/CameraFeed.tsx
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Camera, CameraOff } from 'lucide-react';
 
-interface ServerResponse {
-  translation: string;
-  detected_sign: string;
-  confidence: number;
-  processed_frame: string;
-}
+const OFFER_URL = 'http://localhost:8000/offer';
+const STATUS_URL = 'http://localhost:8000/capture/status';
 
 interface CameraFeedProps {
   isActive: boolean;
   isTranslating: boolean;
   onToggle: () => void;
-  onFrame?: (processedData: Omit<ServerResponse, 'processed_frame'>) => void;
+  onFrame?: (data: { detected_sign: string }) => void;
 }
 
 export function CameraFeed({ isActive, isTranslating, onToggle, onFrame }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameId = useRef<number | null>(null);
-  const lastRecognition = useRef<number>(0);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const processFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !isActive) return;
+  const startWebRTC = useCallback(async () => {
+    try {
+      // 웹캠 비디오 스트림 요청
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
+      });
+      
+      // 로컬 비디오에 스트림 연결
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      // RTCPeerConnection 생성
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
 
-    // 200ms마다 서버 전송
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
-    tempCanvas.getContext('2d')?.drawImage(video, 0, 0);
-    const imageData = tempCanvas.toDataURL('image/jpeg', 0.8);
+      // WebRTC 연결에 비디오 트랙 추가
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-    fetch('http://localhost:8000/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ frame_data: imageData }),
-    })
-      .then(res => res.json())
-      .then((data: ServerResponse) => {
-        // 화면에 Mediapipe 처리 영상 표시 (항상 200ms마다)
-        const img = new Image();
-        img.src = data.processed_frame;
-        img.onload = () => {
-          if (canvas.width !== img.width) canvas.width = img.width;
-          if (canvas.height !== img.height) canvas.height = img.height;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
+      // Offer 생성 및 설정
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-        // recognizedWords 갱신은 2000ms마다
-        const now = Date.now();
-        if (isTranslating && onFrame && now - lastRecognition.current >= 2000) {
-          lastRecognition.current = now;
-          onFrame({ translation: data.translation, detected_sign: data.detected_sign, confidence: data.confidence });
-        }
-      })
-      .catch(err => console.error("Fetch error:", err));
+      // 서버에 offer 전송
+      const response = await fetch(OFFER_URL, {
+        method: 'POST',
+        body: JSON.stringify({ sdp: pc.localDescription }),
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-    animationFrameId.current = requestAnimationFrame(processFrame);
-  }, [isActive, isTranslating, onFrame]);
+      const answer = await response.json();
+      await pc.setRemoteDescription(new RTCSessionDescription(answer.sdp));
 
+      console.log('WebRTC connection established');
+    } catch (err) {
+      console.error('Failed to start WebRTC:', err);
+    }
+  }, []);
+
+  const stopWebRTC = useCallback(() => {
+    // WebRTC 연결 종료
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+
+    // 비디오 스트림 중지
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
+  // isActive 변화에 따라 WebRTC 제어
   useEffect(() => {
-    const startCamera = async () => {
+    if (isActive) startWebRTC();
+    else stopWebRTC();
+
+    return () => {
+      stopWebRTC();
+    };
+  }, [isActive, startWebRTC, stopWebRTC]);
+
+  // 번역 모드: 주기적으로 status 폴링
+  useEffect(() => {
+    if (!isTranslating || !onFrame) {
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
+      }
+      return;
+    }
+
+    const poll = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          animationFrameId.current = requestAnimationFrame(processFrame);
-        }
+        const res = await fetch(STATUS_URL);
+        if (!res.ok) return;
+        const data = await res.json();
+        const sign: string = data?.latest_sign ?? '';
+        if (sign) onFrame({ detected_sign: sign });
       } catch (err) {
-        console.error("Camera access error:", err);
+        console.error('Status fetch error:', err);
       }
     };
 
-    const stopCamera = () => {
-      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    poll(); // 즉시 한 번 호출
+    pollTimer.current = setInterval(poll, 2000);
+
+    return () => {
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
       }
     };
-
-    if (isActive) startCamera();
-    else stopCamera();
-
-    return () => stopCamera();
-  }, [isActive, processFrame]);
+  }, [isTranslating, onFrame]);
 
   return (
     <Card className="relative overflow-hidden shadow-lg bg-white border border-gray-200">
       <div className="aspect-video bg-gray-900 flex items-center justify-center relative">
-        <video ref={videoRef} autoPlay muted playsInline className="hidden" />
-        <canvas ref={canvasRef} className="w-full h-full object-contain" />
+        <video 
+          ref={videoRef} 
+          autoPlay 
+          playsInline 
+          muted
+          className="w-full h-full object-contain" 
+        />
 
         {!isActive && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black bg-opacity-50">
