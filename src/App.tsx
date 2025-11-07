@@ -1,14 +1,22 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from 'react';
+=======
+import React, { useState } from 'react';
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
 import { CameraFeed } from './components/CameraFeed';
 import { RecognizedWords } from './components/RecognizedWords';
 import { TranslationDisplay } from './components/TranslationDisplay';
 import { ControlPanel } from './components/ControlPanel';
+<<<<<<< HEAD
 import { motion, AnimatePresence } from 'framer-motion';
+=======
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
 
 export default function App() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [recognizedWords, setRecognizedWords] = useState<string[]>([]);
+<<<<<<< HEAD
   const [translations, setTranslations] = useState<string[]>([]);
   const [currentTranslation, setCurrentTranslation] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -19,19 +27,27 @@ export default function App() {
   // ---------------------------
   // 카메라 토글
   // ---------------------------
+=======
+  const [translations, setTranslations] = useState<string[]>([]); // 빈 상태로 유지
+
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
   const handleCameraToggle = () => {
     setIsCameraActive((prev) => !prev);
     if (isCameraActive) setIsTranslating(false);
   };
 
+<<<<<<< HEAD
   // ---------------------------
   // 번역 토글
   // ---------------------------
+=======
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
   const handleTranslationToggle = () => {
     if (!isCameraActive) setIsCameraActive(true);
     setIsTranslating((prev) => !prev);
   };
 
+<<<<<<< HEAD
   // ---------------------------
   // 기록 초기화
   // ---------------------------
@@ -44,11 +60,19 @@ export default function App() {
   // ---------------------------
   // 단어 인식 처리
   // ---------------------------
+=======
+  const handleClearHistory = () => {
+    setRecognizedWords([]);
+    setTranslations([]);
+  };
+
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
   const handleFrame = (data: { detected_sign: string }) => {
     const word = data.detected_sign;
     if (!word) return;
 
     setRecognizedWords((prev) => {
+<<<<<<< HEAD
       if (prev[prev.length - 1] === word) return prev;
       return [...prev, word].slice(-10);
     });
@@ -100,6 +124,15 @@ export default function App() {
     };
   }, [recognizedWords, isTranslating]);
 
+=======
+      return [...prev, word].slice(-10); // 최근 10개만 유지
+    });
+
+    // 현재는 번역 기능 비활성화 상태
+    // setTranslations(prev => [...prev, translatedWord].slice(-10));
+  };
+
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
   return (
     <div className="min-h-screen bg-gray-200 p-6 font-sans">
       <header className="text-center mb-6">
@@ -116,6 +149,7 @@ export default function App() {
             onFrame={handleFrame}
           />
 
+<<<<<<< HEAD
           <div className="mt-4 space-y-4 relative">
             <RecognizedWords
               words={recognizedWords}
@@ -141,6 +175,16 @@ export default function App() {
               translations={translations}
               currentTranslation={currentTranslation}
               isTranslating={isTranslating}
+=======
+          <div className="mt-4 space-y-4">
+            <RecognizedWords words={recognizedWords} isActive={isTranslating} />
+
+            {/* TranslationDisplay는 현재 빈 상태로 추가 */}
+            <TranslationDisplay
+              translations={translations}
+              currentTranslation=""
+              isTranslating={false}
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
             />
           </div>
         </div>

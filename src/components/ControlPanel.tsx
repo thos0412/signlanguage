@@ -54,12 +54,20 @@ export function ControlPanel({
               {isTranslating ? (
                 <>
                   <Pause className="w-4 h-4 mr-2" />
+<<<<<<< HEAD
                   수어 인식 중지
+=======
+                  번역 중지
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
+<<<<<<< HEAD
                   수어 인식 시작
+=======
+                  번역 시작
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
                 </>
               )}
             </Button>

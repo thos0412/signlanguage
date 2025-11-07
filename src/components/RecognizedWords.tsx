@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface RecognizedWordsProps {
   words: string[];
   isActive: boolean;
+<<<<<<< HEAD
   onForceTranslate?: () => void; // 🔹 강제 번역 함수
 }
 
@@ -14,6 +15,17 @@ export function RecognizedWords({ words, isActive, onForceTranslate }: Recognize
 
   const displayWords = words.slice(-10);
 
+=======
+}
+
+export function RecognizedWords({ words, isActive }: RecognizedWordsProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 최근 10개 단어만 표시
+  const displayWords = words.slice(-10);
+
+  // 최신 단어가 추가될 때마다 오른쪽으로 스크롤
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollLeft = containerRef.current.scrollWidth;
@@ -27,6 +39,7 @@ export function RecognizedWords({ words, isActive, onForceTranslate }: Recognize
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-gray-900 font-semibold">인식된 단어</h3>
+<<<<<<< HEAD
 
         <div className="flex items-center gap-2">
           {isActive && (
@@ -46,6 +59,14 @@ export function RecognizedWords({ words, isActive, onForceTranslate }: Recognize
             </button>
           )}
         </div>
+=======
+        {isActive && (
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-gray-700 font-medium">감지중</span>
+          </div>
+        )}
+>>>>>>> e31caaf17ed9e45b694eb3c04227520acaf5e330
       </div>
 
       <div
